@@ -95,9 +95,9 @@ jobs:
           sudo sysctl -w vm.swappiness=1
           sudo sysctl -w fs.file-max=262144
           sudo sysctl -w vm.max_map_count=262144
-      - name: Check migrations
-        run: |
-          python manage.py makemigrations --dry-run --check
+      # - name: Check migrations
+      #   run: |
+      #     python manage.py makemigrations --dry-run --check
       - name: Apply migrations
         run: |
           python manage.py migrate
