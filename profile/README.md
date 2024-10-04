@@ -1,4 +1,4 @@
-City of Helsinki/
+City of Helsinki\
 Open source from Helsinki
 
 <!--
