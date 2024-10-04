@@ -1,4 +1,4 @@
-name: ci-django-api-template
+name: ci-django-api
 on:
   workflow_call:
     inputs:
