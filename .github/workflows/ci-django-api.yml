@@ -67,6 +67,8 @@ jobs:
         run: sudo apt-get install libpq-dev
       - name: System requirements for Django
         run: sudo apt-get install gettext postgresql-client
+      - name: gdal-bin to postgis
+        run: sudo apt-get install gdal-bin
       - name: Setup Python ${{ inputs.python-version }}
         uses: actions/setup-python@v4
         with:
