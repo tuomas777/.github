@@ -2,10 +2,25 @@ name: ci-django-api
 on:
   workflow_call:
     inputs:
+      # required parameters
       python-version:
         description: 'Python version to use'
+        required: true
+        type: string
+      database-type:
+        description: 'Database management system, postgres or postgis'
+        required: true
+        type: string
+      # optional parameters
+      database-image:
+        description: 'Database image name'
         required: false
-        default: '3.11'
+        default: 'postgis/postgis'
+        type: string
+      database-image-version:
+        description: 'Database image version'
+        required: false
+        default: '14-3.2-alpine'
         type: string
       pytest-parameters:
         description: 'Pytest parameters'
@@ -16,10 +31,10 @@ on:
   workflow_dispatch:
 env:
   SECRET_KEY: topsecret123
+  POSTGRES_USER: db_user
+  POSTGRES_PASSWORD: db_password
   POSTGRES_DB: test
-  POSTGRES_USER: postgres
-  POSTGRES_PASSWORD: postgres
-  DATABASE_URL: "postgres://postgres:postgres@localhost/test"
+  DATABASE_URL: "${{ inputs.database-type }}://db_user:db_password@localhost/test"  
   FIELD_ENCRYPTION_KEYS: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
@@ -29,11 +44,11 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgis/postgis:14-3.2-alpine
+        image: ${{ inputs.database-image }}:${{ inputs.database-image-version }}
         env:
           # Note: not redundant, parent env is not applied to service
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: db_user
+          POSTGRES_PASSWORD: db_password
           POSTGRES_DB: test
           FIELD_ENCRYPTION_KEYS: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
         ports:
