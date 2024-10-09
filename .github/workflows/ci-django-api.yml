@@ -97,7 +97,7 @@ jobs:
           python manage.py migrate
       - name: Compile translations
         run: |
-          django-admin compilemessages
+          python manage.py compilemessages
         continue-on-error: true
       - name: Run tests
         uses: liskin/gh-problem-matcher-wrap@v2
