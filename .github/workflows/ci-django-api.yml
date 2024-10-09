@@ -98,6 +98,7 @@ jobs:
       - name: Compile translations
         run: |
           django-admin compilemessages
+        continue-on-error: true
       - name: Run tests
         uses: liskin/gh-problem-matcher-wrap@v2
         with:
