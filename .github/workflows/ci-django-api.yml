@@ -61,10 +61,10 @@ jobs:
           sudo apt update
           sudo apt install libpq-dev
           sudo apt install gettext postgresql-client
-      ${{ if eq(inputs.database-type, 'postgis') }}:
-        - name: Install system packages for PostGIS
-          run: |
-            sudo apt install gdal-bin
+      - name: Install system packages for PostGIS
+        if: ${{ inputs.database-type == 'postgis' }}
+        run: |
+          sudo apt install gdal-bin
 
       - name: Setup Python ${{ inputs.python-version }}
         uses: actions/setup-python@v5
