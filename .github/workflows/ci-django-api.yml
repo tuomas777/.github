@@ -238,7 +238,7 @@ jobs:
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - name: Setup Python and PostgreSQL for Pytest
-        uses: ./.github/actions/setup-pytest
+        uses: tuomas777/.github/.github/actions/setup-pytest@reusable_workflow_v2
         with:
           python-version: '3.9'
           database-image: 'postgres'
