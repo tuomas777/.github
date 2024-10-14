@@ -240,7 +240,7 @@ jobs:
       - name: Setup Python and PostgreSQL for Pytest
         uses: tuomas777/.github/.github/actions/setup-pytest@reusable_workflow_v2
         with:
-          python-version: '3.9'
+          python-version: '3.11'
           database-image: 'postgres'
           database-image-version: '14'
           database-type: 'postgres'
