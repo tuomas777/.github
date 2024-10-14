@@ -131,16 +131,16 @@ jobs:
         uses: psf/black@stable
       - name: Extract versions of Black, Flake8, and isort
         run: |
-          # Extract Black version
-          BLACK_VERSION=$(grep '^black' requirements-dev.txt | cut -d '=' -f3)
+          # Extract Black version and sanitize it (remove newlines and spaces)
+          BLACK_VERSION=$(grep '^black' requirements-dev.txt | cut -d '=' -f3 | tr -d '\n\r')
           echo "black_version=$BLACK_VERSION" >> $GITHUB_OUTPUT
-          
-          # Extract Flake8 version
-          FLAKE8_VERSION=$(grep '^flake8' requirements-dev.txt | cut -d '=' -f3)
+
+          # Extract Flake8 version and sanitize it
+          FLAKE8_VERSION=$(grep '^flake8' requirements-dev.txt | cut -d '=' -f3 | tr -d '\n\r')
           echo "flake8_version=$FLAKE8_VERSION" >> $GITHUB_OUTPUT
-          
-          # Extract isort version
-          ISORT_VERSION=$(grep '^isort' requirements-dev.txt | cut -d '=' -f3)
+
+          # Extract isort version and sanitize it
+          ISORT_VERSION=$(grep '^isort' requirements-dev.txt | cut -d '=' -f3 | tr -d '\n\r')
           echo "isort_version=$ISORT_VERSION" >> $GITHUB_OUTPUT
 
       - name: Print extracted versions
