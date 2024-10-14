@@ -269,3 +269,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         continue-on-error: true
+      - name: Run extra steps
+        uses: ./.github/actions/extra-steps
+        if: ${{ hashFiles('.github/actions/extra-steps/action.yml') != '' }}
