@@ -129,25 +129,6 @@ jobs:
           python-version: ${{ inputs.python-version }}
       - name: Run black
         uses: psf/black@stable
-      - name: Extract versions of Black, Flake8, and isort
-        run: |
-          # Extract Black version and sanitize it (remove newlines and spaces)
-          BLACK_VERSION=$(grep '^black' requirements-dev.txt | cut -d '=' -f3 | tr -d '\n\r')
-          echo "black_version=$BLACK_VERSION" >> $GITHUB_OUTPUT
-
-          # Extract Flake8 version and sanitize it
-          FLAKE8_VERSION=$(grep '^flake8' requirements-dev.txt | cut -d '=' -f3 | tr -d '\n\r')
-          echo "flake8_version=$FLAKE8_VERSION" >> $GITHUB_OUTPUT
-
-          # Extract isort version and sanitize it
-          ISORT_VERSION=$(grep '^isort' requirements-dev.txt | cut -d '=' -f3 | tr -d '\n\r')
-          echo "isort_version=$ISORT_VERSION" >> $GITHUB_OUTPUT
-
-      - name: Print extracted versions
-        run: |
-          echo "Black version: ${{ steps.extract-tool-versions.outputs.black_version }}"
-          echo "Flake8 version: ${{ steps.extract-tool-versions.outputs.flake8_version }}"
-          echo "isort version: ${{ steps.extract-tool-versions.outputs.isort_version }}"
 
   flake8:
     name: Style - flake8
@@ -193,3 +174,48 @@ jobs:
         uses: actions/checkout@v4
       - name: Check commitlint
         uses: wagoid/commitlint-github-action@0d749a1a91d4770e983a7b8f83d4a3f0e7e0874e  # v5.4.4
+
+  extract-tool-versions:
+    runs-on: ubuntu-latest
+    outputs:
+      black_version: ${{ steps.extract-tool-versions.outputs.black_version }}
+      flake8_version: ${{ steps.extract-tool-versions.outputs.flake8_version }}
+      isort_version: ${{ steps.extract-tool-versions.outputs.isort_version }}
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v3
+
+      - name: Extract versions of Black, Flake8, and isort
+        id: extract-tool-versions
+        run: |
+          # Extract Black version and sanitize it
+          BLACK_VERSION=$(grep '^black' requirements-dev.txt | cut -d '=' -f3 | tr -d '\n\r')
+          if [ -z "$BLACK_VERSION" ]; then
+            echo "Black version is empty or invalid!"
+            exit 1
+          fi
+          echo "black_version=$BLACK_VERSION" >> $GITHUB_OUTPUT
+
+          # Extract Flake8 version
+          FLAKE8_VERSION=$(grep '^flake8' requirements-dev.txt | cut -d '=' -f3 | tr -d '\n\r')
+          if [ -z "$FLAKE8_VERSION" ]; then
+            echo "Flake8 version is empty or invalid!"
+            exit 1
+          fi
+          echo "flake8_version=$FLAKE8_VERSION" >> $GITHUB_OUTPUT
+
+          # Extract isort version
+          ISORT_VERSION=$(grep '^isort' requirements-dev.txt | cut -d '=' -f3 | tr -d '\n\r')
+          if [ -z "$ISORT_VERSION" ]; then
+            echo "isort version is empty or invalid!"
+            exit 1
+          fi
+          echo "isort_version=$ISORT_VERSION" >> $GITHUB_OUTPUT
+
+      # Print the extracted versions for debugging
+      - name: Print extracted versions
+        run: |
+          echo "Black version: ${{ steps.extract-tool-versions.outputs.black_version }}"
+          echo "Flake8 version: ${{ steps.extract-tool-versions.outputs.flake8_version }}"
+          echo "isort version: ${{ steps.extract-tool-versions.outputs.isort_version }}"
