@@ -30,11 +30,13 @@ runs:
       run: |
         sudo apt update
         sudo apt install -y libpq-dev gettext
+      shell: bash
 
     - name: Install system packages for PostGIS
       if: ${{ inputs.database-type == 'postgis' }}
       run: |
         sudo apt install -y gdal-bin
+      shell: bash
 
     - name: Setup Python
       uses: actions/setup-python@v5
@@ -56,6 +58,7 @@ runs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt -r requirements-dev.txt
+      shell: bash
 
     - name: Configure sysctl limits
       run: |
@@ -63,3 +66,4 @@ runs:
         sudo sysctl -w vm.swappiness=1
         sudo sysctl -w fs.file-max=262144
         sudo sysctl -w vm.max_map_count=262144
+      shell: bash
