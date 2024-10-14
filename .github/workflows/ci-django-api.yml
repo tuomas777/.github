@@ -1,71 +1,100 @@
-name: ci-django-api
+name: Common CI for Django APIs
 on:
   workflow_call:
     inputs:
-      # required parameters
+      # Required parameters
       python-version:
         description: 'Python version to use'
         required: true
         type: string
-      database-type:
-        description: 'Database management system, postgres or postgis'
+      postgres-major-version:
+        description: 'PostgreSQL major version to use (supported versions are 13 and 14)'
         required: true
-        type: string
-      # optional parameters
-      database-image:
-        description: 'Database image name'
+        type: number
+      # Optional parameters
+      use-postgis:
+        description: 'Set to true to use the PostGIS extension'
         required: false
-        default: 'postgis/postgis'
-        type: string
-      database-image-version:
-        description: 'Database image version'
+        type: boolean
+        default: false
+      extra-commands:
+        description: 'Extra setup commands or checks to run before running tests'
         required: false
-        default: '14-3.4-alpine'
         type: string
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+
 env:
   SECRET_KEY: topsecret123
-  POSTGRES_USER: db_user
-  POSTGRES_PASSWORD: db_password
-  POSTGRES_DB: test
-  DATABASE_URL: "${{ inputs.database-type }}://db_user:db_password@localhost/test"  
+  DATABASE_URL: ${{ inputs.use-postgis == true && 'postgis' || 'postgres' }}://test_user:test_password@localhost/test_db
+  # Used by django-searchable-encrypted-fields
   FIELD_ENCRYPTION_KEYS: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  pytest:
-    name: Testing - pytest
+  commitlint:
+    name: Check commit messages
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: ${{ inputs.database-image }}:${{ inputs.database-image-version }}
-        env:
-          # Note: not redundant, parent env is not applied to service
-          POSTGRES_USER: db_user
-          POSTGRES_PASSWORD: db_password
-          POSTGRES_DB: test
-          FIELD_ENCRYPTION_KEYS: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
-        ports:
-          - 5432:5432
-        # needed because the postgres container does not provide a healthcheck
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Run commitlint
+        uses: wagoid/commitlint-github-action@3d28780bbf0365e29b144e272b2121204d5be5f3  # v6.1.2
+
+  pre-commit:
+    name: Run pre-commit hooks
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Setup Python ${{ inputs.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Run pre-commit
+      uses: pre-commit/action@v3.0.1
+
+  tests:
+    name: Run tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        # The workflow supports only the PostgreSQL and PostGIS versions used in Platta
+        image: ${{ inputs.use-postgis &&
+                    (inputs.postgres-major-version == '14' && 'postgis/postgis:14-3.2-alpine' ||
+                     inputs.postgres-major-version == '13' && 'postgis/postgis:13-3.2-alpine') ||
+                    (inputs.postgres-major-version == '14' && 'postgres:14-alpine' ||
+                     inputs.postgres-major-version == '13' && 'postgres:13-alpine') ||
+                     'postgres:alpine' }}  # This fallback is used only so that we don't error out before the validation step
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        # Needed because the postgres container does not provide a healthcheck
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - name: Validate provided PostgreSQL major version
+        run: |
+          if [[ "${{ inputs.postgres-major-version }}" != "13" && "${{ inputs.postgres-major-version }}" != "14" ]]; then
+            echo "Error: Unsupported PostgreSQL major version provided. Supported versions are 13 and 14."
+            exit 1
+          fi
+      - name: Set up locale
+        run: |
+            sudo locale-gen fi_FI.UTF-8
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          # Required by Sonar
+          # Required by SonarCloud
           fetch-depth: 0
       - name: Install system packages
         run: |
-          sudo apt update
-          sudo apt install libpq-dev
-          sudo apt install gettext postgresql-client
+          sudo apt-get update
+          sudo apt-get install libpq-dev gettext
       - name: Install system packages for PostGIS
-        if: ${{ inputs.database-type == 'postgis' }}
+        if: ${{ inputs.use-postgis }}
         run: |
-          sudo apt install gdal-bin
-
+          sudo apt-get install gdal-bin
       - name: Setup Python ${{ inputs.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -86,153 +115,26 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt
-      - name: Configure sysctl limits
-        run: |
-          sudo swapoff -a
-          sudo sysctl -w vm.swappiness=1
-          sudo sysctl -w fs.file-max=262144
-          sudo sysctl -w vm.max_map_count=262144
-      - name: Apply migrations
-        run: |
-          python manage.py migrate
+      - name: Run extra commands
+        if: ${{ inputs.extra-commands != ''}}
+        run: ${{ inputs.extra-commands }}
       - name: Compile translations
         run: |
-          python manage.py compilemessages
-        continue-on-error: true
+          if find . -name "*.po" | grep -q .; then
+            python manage.py compilemessages
+          fi
+      - name: Check migrations
+        run: |
+          python manage.py makemigrations --dry-run --check
       - name: Run tests
-        uses: liskin/gh-problem-matcher-wrap@v2
-        with:
-          linters: pytest
-          run: pytest -ra -vvv --cov=. --cov-report=xml
-
-      # Without this workaround Sonar reports a warning about an incorrect source path
-      # sonarcloud-projeect.properties: sonar.python.coverage.reportPaths=coverage.xml
-      - name: Override coverage report source path for Sonar
+        run: |
+          pytest -ra -vvv --cov=. --cov-report=xml
+      # Without this workaround, SonarCloud reports a warning about an incorrect source path
+      - name: Override coverage report source path for SonarCloud
         run: sed -i 's@'$GITHUB_WORKSPACE'@/github/workspace/@g' coverage.xml
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-  migrations:
-    name: Testing - migrations
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: ${{ inputs.database-image }}:${{ inputs.database-image-version }}
-        env:
-          # Note: not redundant, parent env is not applied to service
-          POSTGRES_USER: db_user
-          POSTGRES_PASSWORD: db_password
-          POSTGRES_DB: test
-          FIELD_ENCRYPTION_KEYS: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
-        ports:
-          - 5432:5432
-        # needed because the postgres container does not provide a healthcheck
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          # Required by Sonar
-          fetch-depth: 0
-      - name: Install system packages
-        run: |
-          sudo apt update
-          sudo apt install libpq-dev
-          sudo apt install gettext postgresql-client
-      - name: Install system packages for PostGIS
-        if: ${{ inputs.database-type == 'postgis' }}
-        run: |
-          sudo apt install gdal-bin
-      - name: Setup Python ${{ inputs.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ inputs.python-version }}
-          cache: pip
-      - name: Cache pip packages
-        uses: actions/cache@v4
-        env:
-          cache-name: cache-pip-modules
-        with:
-          path: ~/.pip-cache
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/requirements.txt') }}-${{ hashFiles('**/requirements-dev.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-dev.txt
-      - name: Configure sysctl limits
-        run: |
-          sudo swapoff -a
-          sudo sysctl -w vm.swappiness=1
-          sudo sysctl -w fs.file-max=262144
-          sudo sysctl -w vm.max_map_count=262144
-      - name: Check migrations
-        run: |
-          python manage.py makemigrations --dry-run --check
-      - name: Apply migrations
-        run: |
-          python manage.py migrate
-
-  black:
-    name: Style - black
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ inputs.python-version }}
-      - name: Run black
-        uses: psf/black@stable
-
-  flake8:
-    name: Style - flake8
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ inputs.python-version }}
-      - name: Install Python dependencies
-        run: pip install flake8 pep8-naming flake8-bugbear
-      - name: Run flake8
-        uses: liskin/gh-problem-matcher-wrap@v1
-        with:
-          linters: flake8
-          run: flake8
-
-  isort:
-    name: Style - isort
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ inputs.python-version }}
-      - name: Install Python dependencies
-        run: pip install isort
-      - name: Run isort
-        uses: liskin/gh-problem-matcher-wrap@v1
-        with:
-          linters: isort
-          run: isort -c .
-
-  commitlint:
-    name: Style - commit lint
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Check commitlint
-        uses: wagoid/commitlint-github-action@0d749a1a91d4770e983a7b8f83d4a3f0e7e0874e  # v5.4.4
+        continue-on-error: true
