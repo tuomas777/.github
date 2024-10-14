@@ -129,6 +129,25 @@ jobs:
           python-version: ${{ inputs.python-version }}
       - name: Run black
         uses: psf/black@stable
+      - name: Extract versions of Black, Flake8, and isort
+        run: |
+          # Extract Black version
+          BLACK_VERSION=$(grep '^black' requirements-dev.txt | cut -d '=' -f3)
+          echo "black_version=$BLACK_VERSION" >> $GITHUB_OUTPUT
+          
+          # Extract Flake8 version
+          FLAKE8_VERSION=$(grep '^flake8' requirements-dev.txt | cut -d '=' -f3)
+          echo "flake8_version=$FLAKE8_VERSION" >> $GITHUB_OUTPUT
+          
+          # Extract isort version
+          ISORT_VERSION=$(grep '^isort' requirements-dev.txt | cut -d '=' -f3)
+          echo "isort_version=$ISORT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Print extracted versions
+        run: |
+          echo "Black version: ${{ steps.extract-tool-versions.outputs.black_version }}"
+          echo "Flake8 version: ${{ steps.extract-tool-versions.outputs.flake8_version }}"
+          echo "isort version: ${{ steps.extract-tool-versions.outputs.isort_version }}"
 
   flake8:
     name: Style - flake8
