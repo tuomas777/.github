@@ -219,3 +219,53 @@ jobs:
           echo "Black version: ${{ steps.extract-tool-versions.outputs.black_version }}"
           echo "Flake8 version: ${{ steps.extract-tool-versions.outputs.flake8_version }}"
           echo "isort version: ${{ steps.extract-tool-versions.outputs.isort_version }}"
+
+  pytest_2:
+    name: Tests - pytest 2
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: ${{ inputs.database-image }}:${{ inputs.database-image-version }}
+        env:
+          # Note: not redundant, parent env is not applied to service
+          POSTGRES_USER: db_user
+          POSTGRES_PASSWORD: db_password
+          POSTGRES_DB: test
+          FIELD_ENCRYPTION_KEYS: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
+        ports:
+          - 5432:5432
+        # needed because the postgres container does not provide a healthcheck
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - name: Setup Python and PostgreSQL for Pytest
+        uses: ./.github/actions/setup-pytest
+        with:
+          python-version: '3.9'
+          database-image: 'postgres'
+          database-image-version: '14'
+          database-type: 'postgres'
+      - name: Check migrations
+        run: |
+          python manage.py makemigrations --dry-run --check
+      - name: Compile translations
+        run: |
+          python manage.py compilemessages
+        continue-on-error: true
+      - name: Apply migrations
+        run: |
+          python manage.py migrate
+      - name: Run tests
+        uses: liskin/gh-problem-matcher-wrap@v2
+        with:
+          linters: pytest
+          run: pytest -ra -vvv --cov=. --cov-report=xml
+      # Without this workaround Sonar reports a warning about an incorrect source path
+      # sonarcloud-project.properties: sonar.python.coverage.reportPaths=coverage.xml
+      - name: Override coverage report source path for Sonar
+        run: sed -i 's@'$GITHUB_WORKSPACE'@/github/workspace/@g' coverage.xml
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        continue-on-error: true

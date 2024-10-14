@@ -1,0 +1,65 @@
+name: "Setup Python and PostgreSQL for Pytest"
+description: "Sets up Python, PostgreSQL, system packages, and configures sysctl for running pytest."
+inputs:
+  python-version:
+    description: "Python version to setup"
+    required: true
+    default: "3.9"
+  database-image:
+    description: "Docker image for the database (e.g., postgres or postgis)"
+    required: true
+    default: "postgres"
+  database-image-version:
+    description: "Version of the Docker image for the database"
+    required: true
+    default: "latest"
+  database-type:
+    description: "Type of database (e.g., 'postgres', 'postgis')"
+    required: false
+    default: "postgres"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install system packages
+      run: |
+        sudo apt update
+        sudo apt install -y libpq-dev gettext
+
+    - name: Install system packages for PostGIS
+      if: ${{ inputs.database-type == 'postgis' }}
+      run: |
+        sudo apt install -y gdal-bin
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: pip
+
+    - name: Cache pip packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.pip-cache
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/requirements.txt') }}-${{ hashFiles('**/requirements-dev.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt -r requirements-dev.txt
+
+    - name: Configure sysctl limits
+      run: |
+        sudo swapoff -a
+        sudo sysctl -w vm.swappiness=1
+        sudo sysctl -w fs.file-max=262144
+        sudo sysctl -w vm.max_map_count=262144
