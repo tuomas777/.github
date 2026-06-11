@@ -12,3 +12,33 @@ updates:
       default-days: 7
     commit-message:
       prefix: "deps"
+
+  # Fixture package files are intentionally pinned and excluded from all updates,
+  # including security updates.
+  - package-ecosystem: "pip"
+    directory: "/.github/workflow-fixtures/django-api"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+
+  - package-ecosystem: "pip"
+    directory: "/.github/workflow-fixtures/django-api-uv"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+
+  - package-ecosystem: "npm"
+    directory: "/.github/workflow-fixtures/node-yarn"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+
+  - package-ecosystem: "npm"
+    directory: "/.github/workflow-fixtures/node-pnpm"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
