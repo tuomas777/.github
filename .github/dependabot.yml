@@ -12,3 +12,19 @@ updates:
       default-days: 7
     commit-message:
       prefix: "deps"
+
+  # Fixture package files in .github/workflow-fixtures/ are intentionally
+  # pinned and excluded from automated updates.
+  - package-ecosystem: "pip"
+    directory: "/.github/workflow-fixtures"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+
+  - package-ecosystem: "npm"
+    directory: "/.github/workflow-fixtures"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
