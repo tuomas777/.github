@@ -40,6 +40,7 @@ To use this reusable workflow, create a project-specific workflow file in your `
 - **`typecheck`** (boolean): Run typecheck command. Default is `false`.
 - **`working-directory`** (string): Repository working directory where to run yarn installation and the tests. Default is `.` (the repository root).
 - **`app-directory`** (string): The subdirectory of the application where the tests are run. Default is **`working-directory`**.
+- **`commitlint-config-file`** (string): Path to the commitlint config file. If empty, commitlint uses its default config discovery (file in repository root).
 
 ### 🔑 Secrets
 
